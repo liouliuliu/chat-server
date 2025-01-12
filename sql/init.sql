@@ -73,4 +73,7 @@ CREATE TABLE offline_messages (
                                   FOREIGN KEY (message_id) REFERENCES messages(message_id),
                                   FOREIGN KEY (user_id) REFERENCES users(user_id),
                                   INDEX idx_user_created (user_id, created_at)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='离线消息表'; 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='离线消息表';
+
+ALTER TABLE users
+    ADD COLUMN gender VARCHAR(10) DEFAULT NULL COMMENT '性别: MALE/FEMALE'; 

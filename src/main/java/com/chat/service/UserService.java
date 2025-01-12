@@ -10,6 +10,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.extern.slf4j.Slf4j;
+import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDateTime;
 
@@ -87,5 +88,14 @@ public class UserService extends ServiceImpl<UserMapper, User> {
 
     public Long getUserIdFromToken(String token) {
         return jwtUtil.getUserIdFromToken(token);
+    }
+
+    public User getUserById(Long userId) {
+        return userMapper.selectById(userId);
+    }
+
+    @Transactional
+    public void updateUser(User user) {
+        userMapper.updateById(user);
     }
 } 

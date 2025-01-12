@@ -11,6 +11,7 @@ import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import io.netty.util.AttributeKey;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -18,6 +19,8 @@ import java.util.concurrent.ConcurrentHashMap;
 @Sharable
 @Component
 public class WebSocketHandler extends SimpleChannelInboundHandler<TextWebSocketFrame> {
+
+    public static final AttributeKey<Long> USER_ID_KEY = AttributeKey.valueOf("userId");
 
     private static final ConcurrentHashMap<Long, Channel> userChannels = new ConcurrentHashMap<>();
     private static final ConcurrentHashMap<Channel, Long> channelUsers = new ConcurrentHashMap<>();

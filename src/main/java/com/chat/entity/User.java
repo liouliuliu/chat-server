@@ -14,6 +14,7 @@ public class User {
     private String nickname;
     private String avatarUrl;
     private String status;
+    private String gender;
     private LocalDateTime lastLoginTime;
     
     @TableField(fill = FieldFill.INSERT)

@@ -1,6 +1,7 @@
 package com.chat.service;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.chat.constant.FriendshipStatus;
 import com.chat.dto.FriendRequest;
 import com.chat.dto.UserDTO;
 import com.chat.dto.UserSearchResponse;
@@ -40,14 +41,14 @@ public class FriendshipService extends ServiceImpl<FriendshipMapper, Friendship>
         Friendship friendship = lambdaQuery()
                 .and(q -> q
                         .or(or -> or
-                                .eq(Friendship::getUserId1, currentUserId)
-                                .eq(Friendship::getUserId2, user.getUserId()))
+                                .eq(Friendship::getUserId, currentUserId)
+                                .eq(Friendship::getFriendId, user.getUserId()))
                         .or(or -> or
-                                .eq(Friendship::getUserId1, user.getUserId())
-                                .eq(Friendship::getUserId2, currentUserId)))
+                                .eq(Friendship::getUserId, user.getUserId())
+                                .eq(Friendship::getFriendId, currentUserId)))
                 .one();
 
-        response.setFriendshipStatus(friendship != null ? friendship.getStatus() : null);
+        response.setFriendshipStatus(friendship != null ? friendship.getStatus().toString() : null);
         return response;
     }
 
@@ -69,11 +70,11 @@ public class FriendshipService extends ServiceImpl<FriendshipMapper, Friendship>
         boolean exists = lambdaQuery()
                 .and(q -> q
                         .or(or -> or
-                                .eq(Friendship::getUserId1, fromUserId)
-                                .eq(Friendship::getUserId2, toUser.getUserId()))
+                                .eq(Friendship::getUserId, fromUserId)
+                                .eq(Friendship::getFriendId, toUser.getUserId()))
                         .or(or -> or
-                                .eq(Friendship::getUserId1, toUser.getUserId())
-                                .eq(Friendship::getUserId2, fromUserId)))
+                                .eq(Friendship::getUserId, toUser.getUserId())
+                                .eq(Friendship::getFriendId, fromUserId)))
                 .exists();
 
         if (exists) {
@@ -82,42 +83,54 @@ public class FriendshipService extends ServiceImpl<FriendshipMapper, Friendship>
 
         // 创建好友请求
         Friendship friendship = new Friendship();
-        friendship.setUserId1(fromUserId);
-        friendship.setUserId2(toUser.getUserId());
-        friendship.setStatus("pending");
+        friendship.setUserId(fromUserId);
+        friendship.setFriendId(toUser.getUserId());
+        friendship.setStatus(FriendshipStatus.PENDING);
         save(friendship);
     }
 
     @Transactional
     public void handleFriendRequest(Long userId, Long requestId, boolean accept) {
         Friendship friendship = getById(requestId);
-        if (friendship == null || !friendship.getUserId2().equals(userId)) {
+        if (friendship == null || !friendship.getFriendId().equals(userId)) {
             throw new RuntimeException("好友请求不存在或无权处理");
         }
 
-        if (!"pending".equals(friendship.getStatus())) {
+        if (friendship.getStatus() != FriendshipStatus.PENDING) {
             throw new RuntimeException("该请求已被处理");
         }
 
-        friendship.setStatus(accept ? "accepted" : "rejected");
-        updateById(friendship);
+        if (accept) {
+            friendship.setStatus(FriendshipStatus.ACTIVE);
+            updateById(friendship);
+            
+            // 创建反向的好友关系
+            Friendship reverseFriendship = new Friendship();
+            reverseFriendship.setUserId(friendship.getFriendId());
+            reverseFriendship.setFriendId(friendship.getUserId());
+            reverseFriendship.setStatus(FriendshipStatus.ACTIVE);
+            save(reverseFriendship);
+        } else {
+            friendship.setStatus(FriendshipStatus.REJECTED);
+            updateById(friendship);
+        }
     }
 
     public List<UserSearchResponse> getPendingRequests(Long userId) {
         List<Friendship> requests = lambdaQuery()
-                .eq(Friendship::getUserId2, userId)
-                .eq(Friendship::getStatus, "pending")
+                .eq(Friendship::getFriendId, userId)
+                .eq(Friendship::getStatus, FriendshipStatus.PENDING)
                 .list();
 
         return requests.stream().map(friendship -> {
-            User fromUser = userService.getById(friendship.getUserId1());
+            User fromUser = userService.getById(friendship.getUserId());
             UserSearchResponse response = new UserSearchResponse();
             response.setUserId(fromUser.getUserId());
             response.setUsername(fromUser.getUsername());
             response.setNickname(fromUser.getNickname());
             response.setAvatarUrl(fromUser.getAvatarUrl());
             response.setFriendshipStatus("pending");
-            response.setRequestId(friendship.getId()); // 需要在UserSearchResponse中添加此字段
+            response.setRequestId(friendship.getFriendshipId());
             return response;
         }).collect(Collectors.toList());
     }
@@ -125,16 +138,16 @@ public class FriendshipService extends ServiceImpl<FriendshipMapper, Friendship>
     public List<UserDTO> getFriendList(Long userId) {
         List<Friendship> friendships = lambdaQuery()
                 .and(q -> q
-                        .or(or -> or.eq(Friendship::getUserId1, userId))
-                        .or(or -> or.eq(Friendship::getUserId2, userId)))
-                .eq(Friendship::getStatus, "accepted")
+                        .or(or -> or.eq(Friendship::getUserId, userId))
+                        .or(or -> or.eq(Friendship::getFriendId, userId)))
+                .eq(Friendship::getStatus, FriendshipStatus.ACTIVE)
                 .list();
 
         return friendships.stream()
                 .map(friendship -> {
-                    Long friendId = friendship.getUserId1().equals(userId) 
-                            ? friendship.getUserId2() 
-                            : friendship.getUserId1();
+                    Long friendId = friendship.getUserId().equals(userId) 
+                            ? friendship.getFriendId() 
+                            : friendship.getUserId();
                     User friend = userService.getById(friendId);
                     return convertToDTO(friend);
                 })

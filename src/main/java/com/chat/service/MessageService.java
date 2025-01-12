@@ -40,6 +40,7 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> {
         message.setGroupId(chatMessage.getGroupId());
         message.setContent(chatMessage.getContent());
         message.setStatus(MessageStatus.SENT);
+        message.setCreatedAt(LocalDateTime.now());
         
         save(message);
 
@@ -80,14 +81,13 @@ public class MessageService extends ServiceImpl<MessageMapper, Message> {
 
     public List<Message> getHistoryMessages(Long currentUserId, Long otherUserId) {
         return lambdaQuery()
-                .eq(Message::getType, MessageType.PRIVATE_MSG)
                 .and(wrapper -> wrapper
-                        .and(w -> w
-                                .eq(Message::getFromUserId, currentUserId)
-                                .eq(Message::getToUserId, otherUserId))
-                        .or(w -> w
-                                .eq(Message::getFromUserId, otherUserId)
-                                .eq(Message::getToUserId, currentUserId)))
+                    .and(w -> w
+                        .eq(Message::getFromUserId, currentUserId)
+                        .eq(Message::getToUserId, otherUserId))
+                    .or(w -> w
+                        .eq(Message::getFromUserId, otherUserId)
+                        .eq(Message::getToUserId, currentUserId)))
                 .orderByAsc(Message::getCreatedAt)
                 .list();
     }
